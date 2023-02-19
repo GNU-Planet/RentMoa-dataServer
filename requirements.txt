@@ -1,0 +1,6 @@
+pandas
+PyMySQL
+python-dotenv
+requests
+xmltodict
+
