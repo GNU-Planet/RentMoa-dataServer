@@ -4,14 +4,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 import MySQLdb
 
-pymysql.install_as_MySQLdb()
-
 import os
 from dotenv import load_dotenv
 
 load_dotenv(verbose=True)
 
-DB = {
+sqlalchemy_DB = {
     "drivername": "mysql",
     "host": os.getenv("DB_HOST"),
     "port": 3306,
@@ -21,4 +19,13 @@ DB = {
     "query": {"charset": "utf8"},
 }
 
-engine = create_engine(URL(**DB))
+pymysql_DB = {
+    "host": os.getenv("DB_HOST"),
+    "user": os.getenv("DB_USERNAME"),
+    "password": os.getenv("DB_PASSWORD"),
+    "db": "richJinju",
+    "charset": "utf8",
+}
+
+engine = create_engine(URL(**sqlalchemy_DB))
+conn = pymysql.connect(**pymysql_DB)

@@ -7,6 +7,7 @@ molit(Ministry of Land, Infrastructure and Transport)
 import pandas as pd
 import requests
 import xmltodict
+import datetime
 from PublicDataReader.config.database import engine
 
 
@@ -212,12 +213,31 @@ class TransactionPrice:
                 },
             },
         }
-        self.integer_columns = ['년', '월', '일', '층', '건축년도',
-                                '거래금액', '보증금액', '보증금', '월세금액', '월세', '종전계약보증금', '종전계약월세']
-        self.float_columns = ['전용면적', '대지권면적',
-                              '대지면적', '연면적', '계약면적', '건물면적', '거래면적']
+        self.integer_columns = [
+            "년",
+            "월",
+            "일",
+            "층",
+            "건축년도",
+            "거래금액",
+            "보증금액",
+            "보증금",
+            "월세금액",
+            "월세",
+            "종전계약보증금",
+            "종전계약월세",
+        ]
+        self.float_columns = ["전용면적", "대지권면적", "대지면적", "연면적", "계약면적", "건물면적", "거래면적"]
 
-    def get_data(self, property_type, trade_type, sigungu_code, year_month=None):
+    def get_data(
+        self,
+        property_type,
+        trade_type,
+        sigungu_code,
+        year_month=None,
+        start_year_month=None,
+        end_year_month=None,
+    ):
         """
         부동산 실거래가 조회
         Parameters
@@ -253,29 +273,60 @@ class TransactionPrice:
             "LAWD_CD": sigungu_code,
         }
 
-        # 단일 연월로 조회
-        df = pd.DataFrame(columns=columns)
-        params["DEAL_YMD"] = year_month
-        res = requests.get(url, params=params)
-        res_json = xmltodict.parse(res.text)
-        # 에러 핸들링
-        if res_json["response"]["header"]["resultCode"] != "00":
-            error_message = res_json["response"]["header"]["resultMsg"]
-            raise Exception(error_message)
-        items = res_json["response"]["body"]["items"]
-        if not items:
-            return pd.DataFrame(columns=columns)
+        # 기간으로 조회
+        if start_year_month and end_year_month:
+            start_date = datetime.datetime.strptime(str(start_year_month), "%Y%m")
+            start_date = datetime.datetime.strftime(start_date, "%Y-%m")
+            end_date = datetime.datetime.strptime(str(end_year_month), "%Y%m")
+            end_date += datetime.timedelta(days=31)
+            end_date = datetime.datetime.strftime(end_date, "%Y-%m")
+            ts = pd.date_range(start=start_date, end=end_date, freq="m")
+            date_list = list(ts.strftime("%Y%m"))
 
-        data = items["item"]
-        sub = pd.DataFrame(data)
-        df = pd.concat([df, sub], axis=0, ignore_index=True)
-        
+            df = pd.DataFrame(columns=columns)
+            for year_month in date_list:
+                params["DEAL_YMD"] = year_month
+                res = requests.get(url, params=params, verify=False)
+                res_json = xmltodict.parse(res.text)
+                if res_json["response"]["header"]["resultCode"] != "00":
+                    error_message = res_json["response"]["header"]["resultMsg"]
+                    raise Exception(error_message)
+                items = res_json["response"]["body"]["items"]
+                if not items:
+                    continue
+                data = items["item"]
+                sub = pd.DataFrame(data)
+                df = pd.concat([df, sub], axis=0, ignore_index=True)
+
+        # 단일 연월로 조회
+        else:
+            df = pd.DataFrame(columns=columns)
+            params["DEAL_YMD"] = year_month
+            res = requests.get(url, params=params)
+            res_json = xmltodict.parse(res.text)
+            # 에러 핸들링
+            if res_json["response"]["header"]["resultCode"] != "00":
+                error_message = res_json["response"]["header"]["resultMsg"]
+                raise Exception(error_message)
+            items = res_json["response"]["body"]["items"]
+            if not items:
+                return pd.DataFrame(columns=columns)
+
+            data = items["item"]
+            sub = pd.DataFrame(data)
+            df = pd.concat([df, sub], axis=0, ignore_index=True)
+
         # 컬럼 타입 변환
         try:
             for col in self.integer_columns:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col].apply(
-                        lambda x: x.strip().replace(",", "") if x is not None and not pd.isnull(x) else x)).astype("Int64")
+                    df[col] = pd.to_numeric(
+                        df[col].apply(
+                            lambda x: x.strip().replace(",", "")
+                            if x is not None and not pd.isnull(x)
+                            else x
+                        )
+                    ).astype("Int64")
             for col in self.float_columns:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col])
@@ -284,6 +335,4 @@ class TransactionPrice:
 
         # 데이터 저장
         conn = engine.connect()
-        df.to_sql(name=property_type+trade_type, con=engine, if_exists='append')
-        
-        
+        df.to_sql(name=property_type + trade_type, con=engine, if_exists="append")
