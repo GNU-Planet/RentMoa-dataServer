@@ -3,4 +3,5 @@ PyMySQL
 python-dotenv
 requests
 xmltodict
+mysqlclient
 

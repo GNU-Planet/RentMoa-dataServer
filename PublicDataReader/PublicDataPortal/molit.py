@@ -7,6 +7,7 @@ molit(Ministry of Land, Infrastructure and Transport)
 import pandas as pd
 import requests
 import xmltodict
+from PublicDataReader.config.database import engine
 
 
 class TransactionPrice:
@@ -281,4 +282,8 @@ class TransactionPrice:
         except Exception as e:
             raise Exception(e)
 
-        return df
+        # 데이터 저장
+        conn = engine.connect()
+        df.to_sql(name=property_type+trade_type, con=engine, if_exists='append')
+        
+        

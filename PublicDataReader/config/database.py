@@ -22,4 +22,3 @@ DB = {
 }
 
 engine = create_engine(URL(**DB))
-conn = engine.connect()
