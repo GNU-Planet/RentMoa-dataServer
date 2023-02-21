@@ -6,11 +6,11 @@ import pandas as pd
 curs = conn.cursor(pymysql.cursors.DictCursor)
 
 # SQL문 실행
-sql = "select * from 단독다가구전월세 where 월=7"
+sql = "select * from 단독다가구전월세 where 월=10"
 curs.execute(sql)
  
 # 데이타 Fetch
 rows = curs.fetchall()
 delivery = pd.DataFrame(rows)
 
-print(delivery.info())
+print(delivery.groupby("법정동").size())
