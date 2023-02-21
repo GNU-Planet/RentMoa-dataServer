@@ -4,4 +4,5 @@ python-dotenv
 requests
 xmltodict
 mysqlclient
+sqlalchemy
 
