@@ -6,7 +6,7 @@ import pandas as pd
 curs = conn.cursor(pymysql.cursors.DictCursor)
 
 # SQL문 실행
-sql = "select * from 단독다가구전월세 where 월=10"
+sql = "select * from 단독다가구전월세 where 월세금액!=0"
 curs.execute(sql)
  
 # 데이타 Fetch
@@ -14,3 +14,4 @@ rows = curs.fetchall()
 delivery = pd.DataFrame(rows)
 
 print(delivery.groupby("법정동").size())
+#print(delivery.groupby(['월', '법정동'])[])
