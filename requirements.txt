@@ -5,4 +5,7 @@ requests
 xmltodict
 mysqlclient
 sqlalchemy
+django
+djangorestframework
+pygments
 
