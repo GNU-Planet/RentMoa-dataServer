@@ -8,6 +8,27 @@
 from django.db import models
 
 
+class DetachedhouseRent(models.Model):
+    region = models.IntegerField(blank=True, null=True)
+    dong = models.CharField(max_length=40, blank=True, null=True)
+    buildYear = models.IntegerField(db_column='buildYear', blank=True, null=True)  # Field name made lowercase.
+    dealBuildingArea = models.FloatField(db_column='dealBuildingArea', blank=True, null=True)  # Field name made lowercase.
+    dealYear = models.IntegerField(db_column='dealYear', blank=True, null=True)  # Field name made lowercase.
+    dealMonth = models.IntegerField(db_column='dealMonth', blank=True, null=True)  # Field name made lowercase.
+    dealDay = models.IntegerField(db_column='dealDay', blank=True, null=True)  # Field name made lowercase.
+    deposit = models.IntegerField(blank=True, null=True)
+    monthlyRent = models.IntegerField(db_column='monthlyRent', blank=True, null=True)  # Field name made lowercase.
+    contractType = models.CharField(db_column='contractType', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    termOfContract = models.CharField(db_column='termOfContract', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    useRequestRenewalContractRight = models.CharField(db_column='useRequestRenewalContractRight', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    previousDeposit = models.IntegerField(db_column='previousDeposit', blank=True, null=True)  # Field name made lowercase.
+    previousMonthlyRent = models.IntegerField(db_column='previousMonthlyRent', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'DetachedHouseRent'
+
+
 class AuthGroup(models.Model):
     name = models.CharField(unique=True, max_length=150)
 
@@ -120,48 +141,3 @@ class DjangoSession(models.Model):
     class Meta:
         managed = False
         db_table = 'django_session'
-
-
-class DetachedHouseTransaction(models.Model):
-    index = models.BigIntegerField(blank=True, null=True)
-    지역코드 = models.TextField(blank=True, null=True)
-    법정동 = models.TextField(blank=True, null=True)
-    지번 = models.TextField(blank=True, null=True)
-    주택유형 = models.TextField(blank=True, null=True)
-    건축년도 = models.BigIntegerField(blank=True, null=True)
-    대지면적 = models.FloatField(blank=True, null=True)
-    연면적 = models.FloatField(blank=True, null=True)
-    년 = models.BigIntegerField(blank=True, null=True)
-    월 = models.BigIntegerField(blank=True, null=True)
-    일 = models.BigIntegerField(blank=True, null=True)
-    거래금액 = models.BigIntegerField(blank=True, null=True)
-    거래유형 = models.TextField(blank=True, null=True)
-    중개사소재지 = models.TextField(blank=True, null=True)
-    해제사유발생일 = models.TextField(blank=True, null=True)
-    해제여부 = models.TextField(blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = '단독다가구매매'
-
-
-class DetachedHouseRent(models.Model):
-    index = models.BigIntegerField(blank=True, null=True)
-    지역코드 = models.TextField(blank=True, null=True)
-    법정동 = models.TextField(blank=True, null=True)
-    건축년도 = models.BigIntegerField(blank=True, null=True)
-    계약면적 = models.FloatField(blank=True, null=True)
-    년 = models.BigIntegerField(blank=True, null=True)
-    월 = models.BigIntegerField(blank=True, null=True)
-    일 = models.BigIntegerField(blank=True, null=True)
-    보증금액 = models.BigIntegerField(blank=True, null=True)
-    월세금액 = models.BigIntegerField(blank=True, null=True)
-    계약구분 = models.TextField(blank=True, null=True)
-    계약기간 = models.TextField(blank=True, null=True)
-    갱신요구권사용 = models.TextField(blank=True, null=True)
-    종전계약보증금 = models.BigIntegerField(blank=True, null=True)
-    종전계약월세 = models.BigIntegerField(blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = '단독다가구전월세'
