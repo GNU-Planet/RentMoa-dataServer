@@ -10,7 +10,7 @@ api = TransactionPrice(service_key)
 
 df = api.get_data(
     property_type="단독다가구",
-    trade_type="매매",
+    trade_type="전월세",
     sigungu_code="48170",
     start_year_month="202207",
     end_year_month="202301",

@@ -150,20 +150,20 @@ class TransactionPrice:
                 "전월세": {
                     "url": "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcSHRent",
                     "columns": [
-                        "지역코드",
-                        "법정동",
-                        "건축년도",
-                        "계약면적",
-                        "년",
-                        "월",
-                        "일",
-                        "보증금액",
-                        "월세금액",
-                        "계약구분",
-                        "계약기간",
-                        "갱신요구권사용",
-                        "종전계약보증금",
-                        "종전계약월세",
+                        "region",
+                        "dong",
+                        "buildYear",
+                        "dealBuildingArea",
+                        "dealYear",
+                        "dealMonth",
+                        "dealDay",
+                        "deposit",
+                        "monthlyRent",
+                        "contractType",
+                        "termOfContract",
+                        "useRequestRenewalContractRight",
+                        "previousDeposit",
+                        "previousMonthlyRent",
                     ],
                 },
             },
@@ -335,4 +335,4 @@ class TransactionPrice:
 
         # 데이터 저장
         conn = engine.connect()
-        df.to_sql(name=property_type + trade_type, con=engine, if_exists="append")
+        df.to_sql(name="DetachedHouseRent", con=engine, if_exists="append")
