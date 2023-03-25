@@ -2,7 +2,6 @@
 import pymysql
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
-import MySQLdb
 
 import os
 from dotenv import load_dotenv

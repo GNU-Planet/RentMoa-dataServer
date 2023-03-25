@@ -319,6 +319,5 @@ class TransactionPrice:
             raise Exception(e)
 
         # 데이터 저장
-        print(df)
         conn = engine.connect()
-        df.to_sql(name="DetachedHouseRent", con=engine, if_exists="append")
+        df.to_sql(name="DetachedHouseRent", con=engine, if_exists="append", index=False)
