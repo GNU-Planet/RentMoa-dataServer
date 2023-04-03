@@ -320,5 +320,11 @@ class TransactionPrice:
 
         # 데이터 저장
         conn = engine.connect()
-        df[['계약시작년', '계약시작월', '계약종료년', '계약종료월']] = df['계약기간'].str.split('[.]|~', expand=True)
+        df[['계약시작년', '계약시작월', '계약종료년', '계약종료월']] = df['계약기간'].str.split('[.]|~', expand=True).fillna(0).astype(int)
+        df.loc[df['계약시작년'] != 0, '계약시작년'] += 2000
+        df.loc[df['계약종료년'] != 0, '계약종료년'] += 2000
+        df.loc[(df['계약시작년'] == 0), '계약시작년'] = df['년'][df['계약시작년'] == 0]
+        df.loc[(df['계약시작월'] == 0), '계약시작월'] = df['월'][df['계약시작월'] == 0]
+        df.loc[(df['계약종료년'] == 0), '계약종료년'] = df['계약시작년'] + 2
+        df.loc[(df['계약종료월'] == 0), '계약종료월'] = df['계약시작월']
         df.to_sql(name="DetachedHouseRent", con=engine, if_exists="append", index=False)
