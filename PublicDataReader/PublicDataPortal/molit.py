@@ -320,4 +320,5 @@ class TransactionPrice:
 
         # 데이터 저장
         conn = engine.connect()
+        df[['계약시작년', '계약시작월', '계약종료년', '계약종료월']] = df['계약기간'].str.split('[.]|~', expand=True)
         df.to_sql(name="DetachedHouseRent", con=engine, if_exists="append", index=False)
