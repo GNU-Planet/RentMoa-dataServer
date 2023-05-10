@@ -327,4 +327,11 @@ class TransactionPrice:
         df.loc[(df['계약시작월'] == 0), '계약시작월'] = df['월'][df['계약시작월'] == 0]
         df.loc[(df['계약종료년'] == 0), '계약종료년'] = df['계약시작년'] + 2
         df.loc[(df['계약종료월'] == 0), '계약종료월'] = df['계약시작월']
+
+        # 예외처리
+        if '보증금' in df.columns:
+            df.rename(columns={'보증금': '보증금액'}, inplace=True)
+        if '월세' in df.columns:
+            df.rename(columns={'월세': '월세금액'}, inplace=True)
+        
         df.to_sql(name="OffiRent", con=engine, if_exists="append", index=False)
