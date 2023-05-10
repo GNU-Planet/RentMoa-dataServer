@@ -327,4 +327,4 @@ class TransactionPrice:
         df.loc[(df['계약시작월'] == 0), '계약시작월'] = df['월'][df['계약시작월'] == 0]
         df.loc[(df['계약종료년'] == 0), '계약종료년'] = df['계약시작년'] + 2
         df.loc[(df['계약종료월'] == 0), '계약종료월'] = df['계약시작월']
-        df.to_sql(name="DetachedHouseRent", con=engine, if_exists="append", index=False)
+        df.to_sql(name="OffiRent", con=engine, if_exists="append", index=False)
