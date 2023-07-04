@@ -12,6 +12,5 @@ df = api.get_data(
     property_type="오피스텔",
     trade_type="전월세",
     sigungu_code="48170",
-    start_year_month="202101",
-    end_year_month="202212",
+    year_month="202112",
 )

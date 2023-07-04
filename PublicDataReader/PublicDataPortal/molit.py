@@ -9,6 +9,7 @@ import requests
 import xmltodict
 import datetime
 from PublicDataReader.config.database import engine
+from tabulate import tabulate
 
 
 class TransactionPrice:
@@ -320,18 +321,35 @@ class TransactionPrice:
 
         # 데이터 저장
         conn = engine.connect()
-        df[['계약시작년', '계약시작월', '계약종료년', '계약종료월']] = df['계약기간'].str.split('[.]|~', expand=True).fillna(0).astype(int)
-        df.loc[df['계약시작년'] != 0, '계약시작년'] += 2000
-        df.loc[df['계약종료년'] != 0, '계약종료년'] += 2000
-        df.loc[(df['계약시작년'] == 0), '계약시작년'] = df['년'][df['계약시작년'] == 0]
-        df.loc[(df['계약시작월'] == 0), '계약시작월'] = df['월'][df['계약시작월'] == 0]
-        df.loc[(df['계약종료년'] == 0), '계약종료년'] = df['계약시작년'] + 2
-        df.loc[(df['계약종료월'] == 0), '계약종료월'] = df['계약시작월']
 
-        # 예외처리
-        if '보증금' in df.columns:
-            df.rename(columns={'보증금': '보증금액'}, inplace=True)
-        if '월세' in df.columns:
-            df.rename(columns={'월세': '월세금액'}, inplace=True)
+        # 공통 예외처리
+        df['계약일'] = pd.to_datetime(df[['년', '월', '일']].astype(str).agg('-'.join, axis=1)).dt.date # 년, 월, 일 -> 계약일
+        df = df[~df['법정동'].str.endswith('리')] # 법정동 끝에 '리'가 붙은 행 삭제
+        for index, row in df.iterrows():
+            계약기간 = row['계약기간']
+            if pd.isna(계약기간):
+                # 계약기간이 None인 경우
+                df.at[index, '계약시작일'] = row['계약일']  # 계약시작일 = 계약일
+                df.at[index, '계약종료일'] = (row['계약일'] + pd.DateOffset(years=2)).date()  # 2년을 더한 계약종료일
+            else:
+                # 계약기간이 값이 있는 경우
+                계약시작일, 계약종료일 = 계약기간.split('~')
+                df.at[index, '계약시작일'] = pd.to_datetime(계약시작일, format='%y.%m').date()
+                df.at[index, '계약종료일'] = pd.to_datetime(계약종료일, format='%y.%m').date()
+        df.drop('계약기간', axis=1, inplace=True) # 계약기간 삭제
+        df.drop(['년', '월', '일'], axis=1, inplace=True) # 년, 월, 일 삭제
+        df.drop(['갱신요구권사용'], axis=1, inplace=True) # 갱신요구권사용 삭제
+        df.drop(['종전계약보증금'], axis=1, inplace=True) # 종전계약보증금 삭제
+        df.drop(['종전계약월세'], axis=1, inplace=True) # 종전계약월세 삭제
         
-        df.to_sql(name="OffiRent", con=engine, if_exists="append", index=False)
+
+        # 오피스텔 예외처리
+        if property_type == "오피스텔":
+            df.rename(columns={'보증금액': '보증금'}, inplace=True) # 보증금액 -> 보증금
+            df.rename(columns={'월세금액': '월세'}, inplace=True) # 월세금액 -> 월세
+            df.drop(['시군구'], axis=1, inplace=True) # 시군구 삭제
+
+        print(tabulate(df, headers='keys', tablefmt='psql', showindex=True))
+        #print(df['계약기간'])
+        
+        #df.to_sql(name="OffiRent", con=engine, if_exists="append", index=False)

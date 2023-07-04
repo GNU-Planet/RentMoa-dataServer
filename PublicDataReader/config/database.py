@@ -14,7 +14,7 @@ sqlalchemy_DB = {
     "port": 3306,
     "username": os.getenv("DB_USERNAME"),
     "password": os.getenv("DB_PASSWORD"),
-    "database": "richJinju",
+    "database": os.getenv("DB_NAME"),
     "query": {"charset": "utf8"},
 }
 
@@ -22,7 +22,7 @@ pymysql_DB = {
     "host": os.getenv("DB_HOST"),
     "user": os.getenv("DB_USERNAME"),
     "password": os.getenv("DB_PASSWORD"),
-    "db": "richJinju",
+    "db": os.getenv("DB_NAME"),
     "charset": "utf8",
 }
 
