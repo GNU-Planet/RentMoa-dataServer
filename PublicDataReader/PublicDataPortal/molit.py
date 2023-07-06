@@ -10,6 +10,7 @@ import xmltodict
 import datetime
 from PublicDataReader.config.database import engine
 from tabulate import tabulate
+from sqlalchemy import text
 
 
 class TransactionPrice:
@@ -319,9 +320,6 @@ class TransactionPrice:
         except Exception as e:
             raise Exception(e)
 
-        # 데이터 저장
-        conn = engine.connect()
-
         # 공통 예외처리
         df['계약일'] = pd.to_datetime(df[['년', '월', '일']].astype(str).agg('-'.join, axis=1)).dt.date # 년, 월, 일 -> 계약일
         df = df[~df['법정동'].str.endswith('리')] # 법정동 끝에 '리'가 붙은 행 삭제
@@ -348,8 +346,51 @@ class TransactionPrice:
             df.rename(columns={'보증금액': '보증금'}, inplace=True) # 보증금액 -> 보증금
             df.rename(columns={'월세금액': '월세'}, inplace=True) # 월세금액 -> 월세
             df.drop(['시군구'], axis=1, inplace=True) # 시군구 삭제
-
-        print(tabulate(df, headers='keys', tablefmt='psql', showindex=True))
-        #print(df['계약기간'])
         
-        #df.to_sql(name="OffiRent", con=engine, if_exists="append", index=False)
+        # 단독다가구 예외처리
+        if property_type == "단독다가구":
+            df.rename(columns={'계약면적': '면적'}, inplace=True)
+        
+        # 아파트, 오피스텔, 연립다세대 예외처리
+        if property_type in ["아파트", "오피스텔", "연립다세대"]:
+            df.rename(columns={'전용면적': '면적'}, inplace=True)
+            df.rename(columns={
+            '지번' : 'jibun',
+            '단지': 'building_name',
+            '층': 'floor'}, inplace=True)
+        
+        df.rename(columns={
+            '지역코드': 'regional_code',
+            '법정동': 'dong',
+            '건축년도': 'build_year',
+            '면적': 'contract_area',
+            '보증금': 'deposit',
+            '월세': 'monthly_rent',
+            '계약구분': 'contract_type',
+            '계약일': 'contract_date',
+            '계약시작일': 'contract_start_date',
+            '계약종료일': 'contract_end_date'}, inplace=True)
+        return df
+
+    # 주택 정보 저장
+    def save_info_data(self, df):
+        selected_df = df[['regional_code', 'dong', 'jibun', 'building_name', 'build_year']].drop_duplicates()
+        conn = engine.connect()
+        selected_df.to_sql(name="offi_info", con=engine, if_exists="append", index=False)
+    
+    # 계약 데이터 저장
+    def save_contract_data(self, df):
+        conn = engine.connect()
+
+        # offi_info 테이블에서 데이터를 가져와 딕셔너리에 저장
+        query = text("SELECT jibun, id FROM offi_info")
+        result = conn.execute(query)
+        rows = result.fetchall()
+        building_name_to_id = dict(rows)
+        conn.close()
+
+        # 계약 데이터에 building_id 컬럼 추가
+        df['building_id'] = df['jibun'].map(building_name_to_id)
+        selected_df = df[['regional_code', 'dong', 'building_id', 'contract_type', 'contract_date', 'contract_start_date', 'contract_end_date', 'contract_area', 'deposit', 'monthly_rent', 'floor']]
+        
+        selected_df.to_sql(name="offi_contract", con=engine, if_exists="append", index=False)
