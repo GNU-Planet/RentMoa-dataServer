@@ -286,7 +286,7 @@ class TransactionPrice:
             '지역코드': 'regional_code', 
             '법정동': 'dong', 
             '건축년도': 'build_year', 
-            '면적': 'area', 
+            '면적': 'contract_area',
             '보증금': 'deposit', 
             '월세': 'monthly_rent', 
             '계약구분': 'contract_type',
@@ -307,7 +307,7 @@ class TransactionPrice:
     def save_contract_data(self, df, property_type):
         table_name = self.meta_dict.get(property_type).get("전월세").get("table_name") + "_contract"
 
-        selected_columns = ['regional_code', 'dong', 'contract_type', 'contract_date', 'contract_start_date', 'contract_end_date', 'contract_area', 'deposit', 'monthly_rent', 'floor']
+        selected_columns = ['regional_code', 'dong', 'contract_type', 'contract_date', 'contract_start_date', 'contract_end_date', 'contract_area', 'deposit', 'monthly_rent']
         
         if property_type in ["아파트", "오피스텔", "연립다세대"]:
             conn = engine.connect()
@@ -317,7 +317,10 @@ class TransactionPrice:
             conn.close()
 
             selected_columns.insert(2, 'building_id')
+            selected_columns.insert(7, 'floor')
             df['building_id'] = df['jibun'].map(building_name_to_id)
+        else:
+            selected_columns.insert(3, 'build_year')
 
         selected_df = df[selected_columns]
         
