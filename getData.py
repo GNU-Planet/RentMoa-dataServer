@@ -9,11 +9,12 @@ service_key = os.getenv("PUBLIC_DATA_PORTAL_SECRET_KEY")
 api = TransactionPrice(service_key)
 
 df = api.get_data(
-    property_type="단독다가구",
+    property_type="연립다세대",
     trade_type="전월세",
     sigungu_code="48170",
-    year_month="202101",
+    start_year_month="202101",
+    end_year_month="202306"
 )
 
 #api.save_info_data(df, property_type="연립다세대")
-api.save_contract_data(df, property_type="단독다가구")
+api.save_contract_data(df, property_type="연립다세대")
