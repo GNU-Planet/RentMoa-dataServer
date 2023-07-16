@@ -12,9 +12,9 @@ df = api.get_data(
     property_type="연립다세대",
     trade_type="전월세",
     sigungu_code="48170",
-    start_year_month="202103",
-    end_year_month="202303"
+    start_year_month="202101",
+    end_year_month="202306"
 )
 
-# print(api.save_info_data(df, property_type="연립다세대"))
-# print(api.save_contract_data(df, property_type="오피스텔"))
+#api.save_info_data(df, property_type="연립다세대")
+api.save_contract_data(df, property_type="연립다세대")
