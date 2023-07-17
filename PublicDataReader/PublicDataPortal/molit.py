@@ -26,6 +26,40 @@ class TransactionPrice:
         self.service_key = service_key
         self.meta_dict = {
             "아파트": {
+                "table_name": "apartment",
+                "매매": {
+                    "url": "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev",
+                    "columns": [
+                        "지역코드",
+                        "도로명",
+                        "법정동",
+                        "지번",
+                        "아파트",
+                        "건축년도",
+                        "층",
+                        "전용면적",
+                        "년",
+                        "월",
+                        "일",
+                        "거래금액",
+                        "도로명건물본번호코드",
+                        "도로명건물부번호코드",
+                        "도로명시군구코드",
+                        "도로명일련번호코드",
+                        "도로명지상지하코드",
+                        "도로명코드",
+                        "법정동본번코드",
+                        "법정동부번코드",
+                        "법정동시군구코드",
+                        "법정동읍면동코드",
+                        "법정동지번코드",
+                        "일련번호",
+                        "거래유형",
+                        "중개사소재지",
+                        "해제사유발생일",
+                        "해제여부",
+                    ],
+                },
                 "전월세": {
                     "url": "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptRent",
                     "columns": [
@@ -47,10 +81,31 @@ class TransactionPrice:
                         "종전계약보증금",
                         "종전계약월세",
                     ],
-                    "table_name": "apartment",
                 },
             },
             "오피스텔": {
+                "table_name": "offi",
+                "매매": {
+                    "url": "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcOffiTrade",
+                    "columns": [
+                        "지역코드",
+                        "시군구",
+                        "법정동",
+                        "지번",
+                        "단지",
+                        "건축년도",
+                        "층",
+                        "전용면적",
+                        "년",
+                        "월",
+                        "일",
+                        "거래금액",
+                        "거래유형",
+                        "중개사소재지",
+                        "해제사유발생일",
+                        "해제여부",
+                    ],
+                },
                 "전월세": {
                     "url": "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcOffiRent",
                     "columns": [
@@ -73,31 +128,31 @@ class TransactionPrice:
                         "종전계약보증금",
                         "종전계약월세",
                     ],
-                    "table_name": "offi",
-                },
-            },
-            "단독다가구": {
-                "전월세": {
-                    "url": "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcSHRent",
-                    "columns": [
-                        '지역코드', 
-                        '법정동', 
-                        '건축년도', 
-                        '계약면적', 
-                        '년', 
-                        '월', 
-                        '일', 
-                        '보증금액', 
-                        '월세금액', 
-                        '계약구분', 
-                        '계약기간', 
-                        '갱신요구권사용', 
-                        '종전계약보증금', 
-                        '종전계약월세'],
-                    "table_name": "detached_house",
                 },
             },
             "연립다세대": {
+                "table_name": "row_house",
+                "매매": {
+                    "url": "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcRHTrade",
+                    "columns": [
+                        "지역코드",
+                        "법정동",
+                        "지번",
+                        "연립다세대",
+                        "건축년도",
+                        "층",
+                        "대지권면적",
+                        "전용면적",
+                        "년",
+                        "월",
+                        "일",
+                        "거래금액",
+                        "거래유형",
+                        "중개사소재지",
+                        "해제사유발생일",
+                        "해제여부",
+                    ],
+                },
                 "전월세": {
                     "url": "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcRHRent",
                     "columns": [
@@ -119,7 +174,27 @@ class TransactionPrice:
                         "종전계약보증금",
                         "종전계약월세",
                     ],
-                    "table_name": "row_house",
+                },
+            },
+            "단독다가구": {
+                "table_name": "detached_house",
+                "전월세": {
+                    "url": "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcSHRent",
+                    "columns": [
+                        '지역코드', 
+                        '법정동', 
+                        '건축년도', 
+                        '계약면적', 
+                        '년', 
+                        '월', 
+                        '일', 
+                        '보증금액', 
+                        '월세금액', 
+                        '계약구분', 
+                        '계약기간', 
+                        '갱신요구권사용', 
+                        '종전계약보증금', 
+                        '종전계약월세'],
                 },
             },
         }
@@ -181,6 +256,7 @@ class TransactionPrice:
         params = {
             "serviceKey": requests.utils.unquote(self.service_key),
             "LAWD_CD": sigungu_code,
+            "numOfRows": 10000,
         }
 
         # 기간으로 조회
@@ -245,25 +321,34 @@ class TransactionPrice:
 
         # 공통 예외처리
         df['계약일'] = pd.to_datetime(df[['년', '월', '일']].astype(str).agg('-'.join, axis=1)).dt.date # 년, 월, 일 -> 계약일
+        df = df.drop(['년', '월', '일'], axis=1) # 년, 월, 일 컬럼 삭제
         df = df[~df['법정동'].str.endswith('리')] # 법정동 끝에 '리'가 붙은 행 삭제
 
-        # 계약기간 처리
-        for index, row in df.iterrows():
-            계약기간 = row['계약기간']
-            if pd.isna(계약기간):
-                # 계약기간이 None인 경우
-                df.at[index, '계약시작일'] = row['계약일']  # 계약시작일 = 계약일
-                df.at[index, '계약종료일'] = (row['계약일'] + pd.DateOffset(years=2)).date()  # 2년을 더한 계약종료일
-            else:
-                # 계약기간이 값이 있는 경우
-                계약시작일, 계약종료일 = 계약기간.split('~')
-                df.at[index, '계약시작일'] = pd.to_datetime(계약시작일, format='%y.%m').date()
-                df.at[index, '계약종료일'] = pd.to_datetime(계약종료일, format='%y.%m').date()
-        df.drop(['계약기간', '년', '월', '일', '갱신요구권사용', '종전계약보증금', '종전계약월세'], axis=1, inplace=True)
+        # 계약기간 처리 (전월세)
+        if(trade_type == '전월세'):
+            for index, row in df.iterrows():
+                계약기간 = row['계약기간']
+                if pd.isna(계약기간):
+                    # 계약기간이 None인 경우
+                    df.at[index, '계약시작일'] = row['계약일']  # 계약시작일 = 계약일
+                    df.at[index, '계약종료일'] = (row['계약일'] + pd.DateOffset(years=2)).date()  # 2년을 더한 계약종료일
+                else:
+                    # 계약기간이 값이 있는 경우
+                    계약시작일, 계약종료일 = 계약기간.split('~')
+                    df.at[index, '계약시작일'] = pd.to_datetime(계약시작일, format='%y.%m').date()
+                    df.at[index, '계약종료일'] = pd.to_datetime(계약종료일, format='%y.%m').date()
+            df.drop(['계약기간', '갱신요구권사용', '종전계약보증금', '종전계약월세'], axis=1, inplace=True)
 
         # 아파트 예외처리
         if property_type == "아파트":
-            df.rename(columns={'아파트': 'building_name', '보증금액': '보증금', '월세금액': '월세'}, inplace=True)
+            df.rename(columns={'아파트': 'building_name'}, inplace=True)
+            if trade_type == "매매":
+                cols_to_drop = ["도로명건물본번호코드", "도로명건물부번호코드", "도로명시군구코드", "도로명일련번호코드", 
+                "도로명지상지하코드", "도로명코드", "법정동본번코드", "법정동부번코드",
+                "법정동시군구코드", "법정동읍면동코드", "법정동지번코드", "도로명", "일련번호"]
+                df.drop(cols_to_drop, axis=1, inplace=True)
+            elif trade_type == "전월세":
+                df.rename(columns={'아파트': 'building_name', '보증금액': '보증금', '월세금액': '월세'}, inplace=True)
 
         # 오피스텔 예외처리
         if property_type == "오피스텔":
@@ -281,6 +366,8 @@ class TransactionPrice:
         # 아파트, 오피스텔, 연립다세대 예외처리
         if property_type in ["아파트", "오피스텔", "연립다세대"]:
             df.rename(columns={'전용면적': '면적', '지번': 'jibun', '층': 'floor'}, inplace=True)
+            if(trade_type == '매매'):
+                df.drop(['거래유형', '중개사소재지', '해제사유발생일', '해제여부'], axis=1, inplace=True)
 
         df.rename(columns={
             '지역코드': 'regional_code', 
@@ -289,6 +376,7 @@ class TransactionPrice:
             '면적': 'contract_area',
             '보증금': 'deposit', 
             '월세': 'monthly_rent', 
+            '거래금액': 'deal_amount',
             '계약구분': 'contract_type',
             '계약일': 'contract_date', 
             '계약시작일': 'contract_start_date', 
@@ -298,7 +386,7 @@ class TransactionPrice:
 
     # 건물 데이터 저장
     def save_info_data(self, df, property_type):
-        table_name = self.meta_dict.get(property_type).get("전월세").get("table_name") + "_info"
+        table_name = self.meta_dict.get(property_type).get("table_name") + "_info"
         selected_df = df[['regional_code', 'dong', 'jibun', 'building_name', 'build_year']].drop_duplicates(subset='jibun')
         conn = engine.connect()
 
@@ -308,14 +396,17 @@ class TransactionPrice:
         selected_df = selected_df[selected_df['_merge'] == 'left_only']
         selected_df = selected_df.drop(columns=['building_name_y', 'build_year_y', '_merge'])
         selected_df.rename(columns={'building_name_x': 'building_name', 'build_year_x': 'build_year'}, inplace=True)
-
         selected_df.to_sql(name=table_name, con=engine, if_exists="append", index=False)
     
     # 계약 데이터 저장
-    def save_contract_data(self, df, property_type):
-        table_name = self.meta_dict.get(property_type).get("전월세").get("table_name")
+    def save_contract_data(self, df, property_type, trade_type):
+        table_name = self.meta_dict.get(property_type).get("table_name")
 
-        selected_columns = ['regional_code', 'dong', 'contract_type', 'contract_date', 'contract_start_date', 'contract_end_date', 'contract_area', 'deposit', 'monthly_rent']
+        selected_columns = ['regional_code', 'dong', 'contract_date', 'contract_area']
+        if trade_type == "매매":
+            selected_columns += ['deal_amount']
+        else:
+            selected_columns += ['contract_type', 'deposit', 'monthly_rent', 'contract_start_date', 'contract_end_date']
         
         if property_type in ["아파트", "오피스텔", "연립다세대"]:
             conn = engine.connect()
@@ -332,5 +423,5 @@ class TransactionPrice:
 
         selected_df = df[selected_columns]
         
-        table_name = table_name + "_contract"
+        table_name = f"{table_name}_trade_contract" if trade_type == "매매" else f"{table_name}_rent_contract"
         selected_df.to_sql(name=table_name, con=engine, if_exists="append", index=False)
