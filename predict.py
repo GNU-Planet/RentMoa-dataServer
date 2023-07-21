@@ -1,85 +1,100 @@
 import pandas as pd
 from PublicDataReader.config.database import engine
 from sqlalchemy import text
-
-conn = engine.connect()
-query = text(f"SELECT * FROM offi_rent_contract")
-
-result = conn.execute(query).fetchall();
-contract_data = pd.DataFrame(result)
-
-# contract_end_date가 None인 행 제거
-contract_data = contract_data.dropna(subset=['contract_end_date'])
-
-columns = ['contract_area', 'floor']
-
-# 날짜 열을 datetime 객체로 변환
-date_columns = ['contract_date', 'contract_start_date', 'contract_end_date']
-for col in date_columns:
-    contract_data[col] = pd.to_datetime(contract_data[col])
-    
-    contract_data[col] = contract_data[col].map(pd.Timestamp.timestamp)
-contract_data['contract_duration_days'] = (contract_data['contract_end_date'] - contract_data['contract_start_date'])
-contract_data['contract_start_to_date_days'] = (contract_data['contract_start_date'] - contract_data['contract_date'])
-
-columns += ['contract_date', 'contract_duration_days', 'contract_start_to_date_days']
-
-# 예측해야할 변수(계약종료일)
-y = contract_data['contract_end_date']
-# 예측하는 데에 사용되는 변수열들(법정동, 건물, 갱신 여부, 계약년도, year, month, 면적, 보증금, 월세, 층 등)
-contract_features = columns
-X = contract_data[contract_features]
-
-
 from datetime import datetime, timedelta
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 
-# 데이터를 학습 데이터와 평가 데이터로 나누기 (test_size=0.2는 평가 데이터의 비율을 20%로 지정)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
+# 데이터를 불러오는 함수
+def load_data(type="무관|전세|월세"):
+    conn = engine.connect()
+    query = "SELECT * FROM offi_rent_contract"
 
-# 모델을 정의합니다. 매번 똑같은 결과를 얻기 위해 random_state에 숫자를 지정합니다.
-contract_model = DecisionTreeRegressor(random_state=1)
+    if type == "전세":
+        query += " WHERE monthly_rent = 0"
+    elif type == "월세":
+        query += " WHERE monthly_rent != 0"
 
-# 학습 데이터로 모델을 학습시킵니다.
-contract_model.fit(X_train, y_train)
+    result = conn.execute(text(query)).fetchall()
+    contract_data = pd.DataFrame(result)
+    # contract_end_date가 None인 행 제거
+    contract_data = contract_data.dropna(subset=['contract_end_date'])
+    return contract_data
 
-# 변수 중요도를 얻습니다.
-feature_importances = contract_model.feature_importances_
+# 데이터 전처리 함수
+def preprocess_data(data):
+    # 날짜 열을 datetime 객체로 변환
+    date_columns = ['contract_date', 'contract_end_date']
+    for col in date_columns:
+        data[col] = pd.to_datetime(data[col])
+        data[col] = data[col].map(pd.Timestamp.timestamp)
+    # contract_type 열을 원-핫 인코딩하여 새로운 데이터프레임 생성
+    contract_type_encoded = pd.get_dummies(data['contract_type'], prefix='contract_type', dummy_na=True)
+    # 기존 데이터프레임과 원-핫 인코딩된 데이터프레임을 합침
+    data = pd.concat([data, contract_type_encoded], axis=1)
+    # 불필요한 열인 contract_type 열 삭제
+    data.drop('contract_type', axis=1, inplace=True)
+    return data
 
-# 변수 중요도를 출력합니다.
-print("Variable Importance:")
-for i, importance in enumerate(feature_importances):
-    print(f"Feature {X.columns[i]}: {importance}")
+# 모델을 학습시키는 함수
+def train_model(X, y):
+    # 데이터를 학습 데이터와 평가 데이터로 나누기 (test_size=0.2는 평가 데이터의 비율을 20%로 지정)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
+    # 모델을 정의합니다. 매번 똑같은 결과를 얻기 위해 random_state에 숫자를 지정합니다.
+    contract_model = DecisionTreeRegressor(random_state=1)
+    # 학습 데이터로 모델을 학습시킵니다.
+    contract_model.fit(X_train, y_train)
+    return contract_model, X_test, y_test
 
-# 평가 데이터로 예측을 수행합니다.
-predictions = contract_model.predict(X_test)
-predicted_dates = [datetime.fromtimestamp(epoch_value).strftime('%Y-%m') for epoch_value in predictions]
-actual_dates = [datetime.fromtimestamp(epoch_value).strftime('%Y-%m') for epoch_value in y_test]
+# 모델을 사용하여 계약종료일을 예측하는 함수
+def predict_dates(model, X_test):
+    predictions = model.predict(X_test)
+    predicted_dates = [datetime.fromtimestamp(epoch_value).strftime('%Y-%m') for epoch_value in predictions]
+    return predicted_dates
 
+# 모델의 정확도를 평가하는 함수
+def evaluate_model(actual_dates, predicted_dates):
+    accuracy = accuracy_score(actual_dates, predicted_dates)
+    print(f"모델의 정확도: {accuracy}")
+    correct_count = 0
+    tolerance = timedelta(days=30)  # 1개월 오차범위 설정
+    date_format = "%Y-%m";
+    for actual, predicted in zip(actual_dates, predicted_dates):
+        actual = datetime.strptime(actual, date_format)
+        predicted = datetime.strptime(predicted, date_format)
+        if abs(actual - predicted) <= tolerance:
+            correct_count += 1
+    accuracy = correct_count / len(actual_dates)
+    print(f"모델의 정확도(1개월 오차범위 허용): {accuracy}")
 
-print("모델의 예측 값:")
-print(predicted_dates)
+# 변수 중요도를 출력하는 함수
+def print_feature_importances(model, X):
+    feature_importances = model.feature_importances_
+    features = X.columns
+    for feature, importance in zip(features, feature_importances):
+        print(f"{feature}: {importance}")
 
-# 실제 y값 출력 (평가 데이터의 실제 contract_end_date 값)
-print("실제 값:")
-print(actual_dates)
+def main():
+    test_type = ["무관"]
+    for type in test_type:
+        contract_data = load_data(type)
+        contract_data = preprocess_data(contract_data)
+        
+        # 모델에 사용할 feature와 target 변수 설정
+        contract_features = ['building_id', 'deposit', 'contract_area', 'floor', 'contract_date', 'contract_type_갱신', 'contract_type_신규', 'contract_type_nan']
+        X = contract_data[contract_features]
+        y = contract_data['contract_end_date']
+        
+        model, X_test, y_test = train_model(X, y)
+        predicted_dates = predict_dates(model, X_test)
+        actual_dates = [datetime.fromtimestamp(epoch_value).strftime('%Y-%m') for epoch_value in y_test]
 
-# 정확도를 계산하여 출력합니다.
-accuracy = accuracy_score(actual_dates, predicted_dates)
-print(f"모델의 정확도: {accuracy}")
+        print(f"----- {type} ------")
+        print(f"사용된 features: {contract_features}")
+        evaluate_model(actual_dates, predicted_dates)
+        print_feature_importances(model, X)
+        
 
-# 정확도를 계산하여 출력합니다.
-correct_count = 0
-tolerance = timedelta(days=30)  # 1개월 오차범위 설정
-date_format = "%Y-%m";
-for actual, predicted in zip(actual_dates, predicted_dates):
-    actual = datetime.strptime(actual, date_format)
-    predicted = datetime.strptime(predicted, date_format)
-    if abs(actual - predicted) <= tolerance:
-        correct_count += 1
-
-accuracy = correct_count / len(actual_dates)
-print(f"모델의 정확도(1개월 오차범위 허용): {accuracy}")
-
+if __name__ == "__main__":
+    main()
