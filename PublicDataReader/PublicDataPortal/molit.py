@@ -281,7 +281,10 @@ class TransactionPrice:
                 if not items:
                     continue
                 data = items["item"]
-                sub = pd.DataFrame(data)
+                try:
+                    sub = pd.DataFrame(data)
+                except:
+                    print(data)
                 df = pd.concat([df, sub], axis=0, ignore_index=True)
 
         # 단일 연월로 조회
@@ -330,8 +333,10 @@ class TransactionPrice:
                 계약기간 = row['계약기간']
                 if pd.isna(계약기간):
                     # 계약기간이 None인 경우
-                    df.at[index, '계약시작일'] = row['계약일']  # 계약시작일 = 계약일
-                    df.at[index, '계약종료일'] = (row['계약일'] + pd.DateOffset(years=2)).date()  # 2년을 더한 계약종료일
+                    #df.at[index, '계약시작일'] = row['계약일']  # 계약시작일 = 계약일
+                    #df.at[index, '계약종료일'] = (row['계약일'] + pd.DateOffset(years=2)).date()  # 2년을 더한 계약종료일
+                    df.at[index, '계약시작일'] = None
+                    df.at[index, '계약종료일'] = None
                 else:
                     # 계약기간이 값이 있는 경우
                     계약시작일, 계약종료일 = 계약기간.split('~')
