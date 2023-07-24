@@ -4,6 +4,7 @@ from sqlalchemy import text
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
+import statsmodels.api as sm
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # 폰트 적용
@@ -44,6 +45,12 @@ def preprocess_data(data):
     # 계약 기간을 월(Month) 로 변환
     data['duration_months'] = data['duration'] / (60 * 60 * 24 * 30)
 
+    # 법정동을 숫자로 변환
+    dong_dict = {}
+    for i, dong in enumerate(data['dong'].unique()):
+        dong_dict[dong] = i
+    data['dong'] = data['dong'].map(dong_dict)
+
     return data
 
 def main():
@@ -60,15 +67,17 @@ def main():
         print("계약기간과 각 피쳐들의 상관계수:")
         for feature, corr in duration_correlation.items():
             print(f"{feature}: {corr}")
-
-        # Create the Box Plot
-        plt.figure(figsize=(12, 6))
-        sns.boxplot(x='building_id', y='duration_months', data=contract_data)
-        plt.xlabel('오피스텔 ID')
-        plt.ylabel('계약기간 (월)')
-        plt.title('오피스텔 ID와 계약기간의 상관관계')
-        plt.xticks(rotation=90)
+        
+        filtered_data = contract_data[(contract_data['monthly_rent'] == 0)]
+        
+        plt.figure(figsize=(10, 6))
+        plt.scatter(filtered_data['deposit'], filtered_data['duration_months'], alpha=0.5)
+        plt.xlabel('보증금')
+        plt.ylabel('계약 기간 (월)')
+        plt.title('월세가 0원일 때 보증금과 계약 기간의 상관관계')
         plt.show()
+
+
         
 
         
