@@ -9,4 +9,5 @@ django
 djangorestframework
 pygments
 tabulate
+sklearn
 

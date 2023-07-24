@@ -342,7 +342,8 @@ class TransactionPrice:
                     계약시작일, 계약종료일 = 계약기간.split('~')
                     df.at[index, '계약시작일'] = pd.to_datetime(계약시작일, format='%y.%m').date()
                     df.at[index, '계약종료일'] = pd.to_datetime(계약종료일, format='%y.%m').date()
-            df.drop(['계약기간', '갱신요구권사용', '종전계약보증금', '종전계약월세'], axis=1, inplace=True)
+            df.rename(columns={'갱신요구권사용': 'renewal_request'}, inplace=True)
+            df.drop(['계약기간', '종전계약보증금', '종전계약월세'], axis=1, inplace=True)
 
         # 아파트 예외처리
         if property_type == "아파트":
@@ -407,7 +408,7 @@ class TransactionPrice:
     def save_contract_data(self, df, property_type, trade_type):
         table_name = self.meta_dict.get(property_type).get("table_name")
 
-        selected_columns = ['regional_code', 'dong', 'contract_date', 'contract_area']
+        selected_columns = ['regional_code', 'dong', 'contract_date', 'contract_area', 'renewal_request']
         if trade_type == "매매":
             selected_columns += ['deal_amount']
         else:

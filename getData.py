@@ -13,7 +13,7 @@ df = api.get_data(
     trade_type="전월세",
     sigungu_code="48170",
     start_year_month="202106",
-    end_year_month="202307",
+    end_year_month="202306",
 )
 
 #api.save_info_data(df, property_type="오피스텔")

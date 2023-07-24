@@ -3,8 +3,10 @@ from PublicDataReader.config.database import engine
 from sqlalchemy import text
 from datetime import datetime, timedelta
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score
+import numpy as np
+import matplotlib.pyplot as plt
 
 # 데이터를 불러오는 함수
 def load_data(type="무관|전세|월세"):
@@ -29,10 +31,14 @@ def preprocess_data(data):
     for col in date_columns:
         data[col] = pd.to_datetime(data[col])
         data[col] = data[col].map(pd.Timestamp.timestamp)
+    # 계약 기간의 평균값 추가
+    data['common_contract_duration_days'] = (data['contract_end_date'] - data['contract_date'])
+
     # contract_type 열을 원-핫 인코딩하여 새로운 데이터프레임 생성
     contract_type_encoded = pd.get_dummies(data['contract_type'], prefix='contract_type', dummy_na=True)
     # 기존 데이터프레임과 원-핫 인코딩된 데이터프레임을 합침
     data = pd.concat([data, contract_type_encoded], axis=1)
+
     # 불필요한 열인 contract_type 열 삭제
     data.drop('contract_type', axis=1, inplace=True)
     return data
@@ -82,18 +88,34 @@ def main():
         contract_data = preprocess_data(contract_data)
         
         # 모델에 사용할 feature와 target 변수 설정
-        contract_features = ['building_id', 'deposit', 'contract_area', 'floor', 'contract_date', 'contract_type_갱신', 'contract_type_신규', 'contract_type_nan']
+        contract_features = ['building_id', 'deposit', 'monthly_rent', 'contract_area', 'floor', 'contract_date', 'contract_type_갱신', 'contract_type_신규', 'contract_type_nan']
         X = contract_data[contract_features]
         y = contract_data['contract_end_date']
-        
-        model, X_test, y_test = train_model(X, y)
-        predicted_dates = predict_dates(model, X_test)
-        actual_dates = [datetime.fromtimestamp(epoch_value).strftime('%Y-%m') for epoch_value in y_test]
 
+        # 교차 검증 수행 (cv=5는 5-fold 교차 검증을 의미)
+        model = DecisionTreeRegressor(random_state=1)
+        scores = cross_val_score(model, X, y, cv=5, scoring='r2')
+
+        # 교차 검증 결과 출력
         print(f"----- {type} ------")
         print(f"사용된 features: {contract_features}")
-        evaluate_model(actual_dates, predicted_dates)
+        print('교차 검증별 R-squared : {}'.format(np.round(scores, 4)))
+
+        # 모델 학습
+        model.fit(X, y)
+
+        # 변수 중요도 출력
+        print("변수 중요도:")
         print_feature_importances(model, X)
+        
+        # model, X_test, y_test = train_model(X, y)
+        # predicted_dates = predict_dates(model, X_test)
+        # actual_dates = [datetime.fromtimestamp(epoch_value).strftime('%Y-%m') for epoch_value in y_test]
+
+        # print(f"----- {type} ------")
+        # print(f"사용된 features: {contract_features}")
+        # evaluate_model(actual_dates, predicted_dates)
+        # print_feature_importances(model, X)
         
 
 if __name__ == "__main__":
