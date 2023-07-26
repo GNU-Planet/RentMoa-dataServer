@@ -43,7 +43,9 @@ def preprocess_data(data):
     data['duration'] = data['contract_end_date'] - data['contract_date']
 
     # 계약 기간을 월(Month) 로 변환
-    data['duration_months'] = data['duration'] / (60 * 60 * 24 * 30)
+    data['duration_months'] = (round(data['duration'] / (60 * 60 * 24 * 30))).astype(int)
+
+    data = data[(data['duration_months'] < 27) & (data['duration_months'] > 10)]
 
     # 법정동을 숫자로 변환
     dong_dict = {}
@@ -68,14 +70,13 @@ def main():
         for feature, corr in duration_correlation.items():
             print(f"{feature}: {corr}")
         
-        filtered_data = contract_data[(contract_data['monthly_rent'] == 0)]
-        
-        plt.figure(figsize=(10, 6))
-        plt.scatter(filtered_data['deposit'], filtered_data['duration_months'], alpha=0.5)
+        # 보증금과 계약기간의 산점도 시각화
+        plt.scatter(contract_data['deposit'], contract_data['duration_months'])
         plt.xlabel('보증금')
-        plt.ylabel('계약 기간 (월)')
-        plt.title('월세가 0원일 때 보증금과 계약 기간의 상관관계')
+        plt.ylabel('계약기간')
+        plt.title('보증금과 계약기간의 상관관계')
         plt.show()
+
 
 
         
