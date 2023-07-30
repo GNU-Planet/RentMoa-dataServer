@@ -1,2 +1,1 @@
-ate']
-        X = contract_data[contract_features]
+validation_data_without_start_date['contract_start_date'] = predicted_start_date

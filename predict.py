@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import numpy as np
 import seaborn as sns
 import pandas as pd
 from PublicDataReader.config.database import engine
@@ -15,7 +16,7 @@ def convert_epoch_to_date(epoch):
 # 데이터를 불러오는 함수
 def load_data(type="무관|전세|월세"):
     conn = engine.connect()
-    query = "SELECT * FROM apartment_rent_contract"
+    query = "SELECT * FROM offi_rent_contract"
 
     if type == "전세":
         query += " WHERE monthly_rent = 0"
@@ -34,7 +35,7 @@ def load_data(type="무관|전세|월세"):
 # 데이터 전처리 함수
 def preprocess_data(data):
     # 날짜 열을 datetime 객체로 변환
-    date_columns = ['contract_date', 'contract_end_date']
+    date_columns = ['contract_date', 'contract_start_date', 'contract_end_date']
     # contract_date의 일자를 모두 1로 바꾸기
     data['contract_date'] = data['contract_date'].apply(lambda x: x.replace(day=1))
     try:
@@ -43,6 +44,16 @@ def preprocess_data(data):
             data[col] = data[col].map(pd.Timestamp.timestamp)
     except:
         pass
+
+    # (contract_end_date - contract_date)로 duration 계산
+    data['duration'] = data['contract_end_date'] - data['contract_date']
+
+    # 계약 기간을 월(Month) 로 변환
+    data['duration_months'] = (round(data['duration'] / (60 * 60 * 24 * 30))).astype(int)
+
+    # 계약 기간이 11, 12, 13, 23, 24, 25개월인 데이터만 추출
+    data = data[data['duration_months'].isin([11, 12, 13, 23, 24, 25])]
+
     return data
 
 # 모델을 학습시키는 함수 (랜덤 포레스트)
@@ -80,7 +91,7 @@ def update_contract_dates(data):
         contract_end_date = row['contract_end_date']
 
         # Update the contract_date in the database using an SQL UPDATE query
-        query = f"UPDATE apartment_rent_contract SET contract_end_date = '{contract_end_date}' WHERE id = {idx}"
+        query = f"UPDATE offi_rent_contract SET contract_end_date = '{contract_end_date}' WHERE id = {idx}"
         conn.execute(text(query))
 
         #commit
@@ -94,7 +105,7 @@ def main():
     for type in test_type:
         empty_data, contract_data = load_data(type)
         contract_data = preprocess_data(contract_data)
-        empty_data = preprocess_data(empty_data)
+        #empty_data = preprocess_data(empty_data)
         
         # 모델에 사용할 feature와 target 변수 설정
         contract_features = ['deposit', 'monthly_rent', 'contract_date', 'contract_area', 'floor']
@@ -121,37 +132,27 @@ def main():
 
         # 차이 계산 및 평균값 출력
         prediction_df['Difference (Months)'] = (prediction_df['Predicted End Date'] - prediction_df['Actual End Date']) / pd.Timedelta(days=30)
+        # 10개월 이상 차이나는 값 보기
+        outlier_data = prediction_df[abs(prediction_df['Difference (Months)']) > 1.1]
+        actual_outlier_data = contract_data.loc[outlier_data.index]
+        print(actual_outlier_data)
+
+        # 월세와 보증금에 따른 계약 기간의 시각화
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(x='monthly_rent', y='deposit', hue='duration_months', data=actual_outlier_data, palette='viridis')
+        plt.xlabel('월세')
+        plt.ylabel('보증금')
+        plt.title('월세와 보증금에 따른 계약 기간')
+        plt.show()
 
         # MSE와 평균 차이 출력
-        print(prediction_df)
+        #print(prediction_df)
         print("Mean Squared Error (MSE): {:.2f}".format(mse))
 
         num_correct = sum(abs(prediction_df['Difference (Months)']) == 0)/len(prediction_df)
         print("정답 퍼센트:", num_correct)
-        num_correct = sum(abs(prediction_df['Difference (Months)']) <= 1)/len(prediction_df)
+        num_correct = sum(abs(prediction_df['Difference (Months)']) <= 1.1)/len(prediction_df)
         print("1개월 오차 범위 내 정답 퍼센트:", num_correct)
-        
-        # 차이값 시각화
-        plt.figure(figsize=(10, 6))
-        plt.scatter(range(len(prediction_df)), prediction_df['Difference (Months)'])
-        plt.axhline(y=0, color='r', linestyle='--')
-        plt.xlabel('Sample Index')
-        plt.ylabel('Difference (Months)')
-        plt.title('Difference between Predicted and Actual End Date')
-        plt.show()
-
-        # Use the trained model to predict contract_end_date for empty_data
-        X_empty = empty_data[contract_features]
-        empty_data['predicted_contract_end_date'] = model.predict(X_empty)
-
-        # 예측값과 실제값을 에폭에서 날짜로 변환
-        empty_data['contract_end_date'] = convert_epoch_to_date(empty_data['predicted_contract_end_date'])
-
-        empty_data['contract_date'] = convert_epoch_to_date(empty_data['contract_date'])
-
-        # Update the contract_end_date in the database
-        update_contract_dates(empty_data)
-
         
 
 if __name__ == "__main__":
