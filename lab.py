@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBRegressor
 from datetime import datetime
+from lightgbm import LGBMRegressor
 
 import warnings 
 warnings.filterwarnings("ignore", category = RuntimeWarning)
@@ -53,7 +54,47 @@ def preprocess_data(data):
     # renewal_request 열을 전처리 (0=null, 1=사용)
     data['renewal_request'] = data['renewal_request'].apply(lambda x : 0 if x == 'null' else 1)
 
-    drop_columns = ['dong', 'contract_start_date', 'id']
+    # 동 이름을 고유한 번호로 매핑하는 딕셔너리 생성
+    dong_mapping = {
+        '망경동': 1,
+        '주약동': 2,
+        '강남동': 3,
+        '칠암동': 4,
+        '본성동': 5,
+        '동성동': 6,
+        '남성동': 7,
+        '인사동': 8,
+        '대안동': 9,
+        '평안동': 10,
+        '중안동': 11,
+        '계동': 12,
+        '봉곡동': 13,
+        '상봉동': 14,
+        '봉래동': 15,
+        '수정동': 16,
+        '장대동': 17,
+        '옥봉동': 18,
+        '상대동': 19,
+        '하대동': 20,
+        '상평동': 21,
+        '초전동': 22,
+        '장재동': 23,
+        '하촌동': 24,
+        '신안동': 25,
+        '평거동': 26,
+        '이현동': 27,
+        '유곡동': 28,
+        '판문동': 29,
+        '귀곡동': 30,
+        '가좌동': 31,
+        '호탄동': 32,
+        '충무공동': 33
+    }
+
+    # dong 열의 동 이름을 번호로 매핑하여 변환
+    data['dong'] = data['dong'].map(dong_mapping)
+
+    drop_columns = ['contract_start_date', 'id']
     data.drop(drop_columns, axis=1, inplace=True)
 
     # (contract_end_date - contract_date)로 duration 계산
@@ -117,6 +158,27 @@ def get_model_predict(model, X_train, X_test, y_train, y_test):
     print("###", model.__class__.__name__, '###')
     evaluate_regr(y_test, pred)
     get_top_error_data(y_test, pred, n_tops=25)
+    print("훈련 세트 정확도: {:.3f}".format(model.score(X_train, y_train)))
+    print("테스트 세트 정확도: {:.3f}".format(model.score(X_test, y_test)))
+
+def visualize_feature_importance(model, feature_names):
+    # 모델의 특성 중요도 가져오기
+    feature_importance = model.feature_importances_
+
+    # 특성 중요도를 내림차순으로 정렬하여 인덱스 가져오기
+    sorted_idx = np.argsort(feature_importance)[::-1]
+
+    # 정렬된 특성 중요도에 따라 특성 이름 정렬
+    sorted_feature_names = [feature_names[i] for i in sorted_idx]
+
+    # 특성 중요도 시각화
+    plt.figure(figsize=(10, 6))
+    plt.barh(range(len(sorted_idx)), feature_importance[sorted_idx], align='center')
+    plt.yticks(range(len(sorted_idx)), sorted_feature_names)
+    plt.xlabel('Feature Importance')
+    plt.ylabel('Feature')
+    plt.title('Feature Importance of RandomForestRegressor')
+    plt.show()
 
 def main():
     contract_data = load_data()
@@ -125,15 +187,18 @@ def main():
     # 예측할 레이블(y_target)과 특성(X_features) 분리
     y_target = contract_data['contract_end_date']
     X_features = contract_data.drop(['contract_end_date'], axis=1, inplace=False)
-    print(X_features.columns)
-    ohe_columns = ['contract_type', 'renewal_request', 'building_id', 'regional_code']
+    ohe_columns = ['contract_type', 'renewal_request', 'building_id', 'regional_code', 'dong']
     X_features_ohe = pd.get_dummies(X_features, columns=ohe_columns)
+    print(X_features_ohe.columns)
 
     #원-핫 인코딩이 적용된 피처 데이터 세트 기반으로 학습/예측 데이터 분할 
     X_train, X_test, y_train, y_test = train_test_split(X_features_ohe, y_target, test_size=0.2, random_state=0)
 
-    dtc_reg = DecisionTreeClassifier(random_state=0)
+    dtc_reg = XGBRegressor(random_state=0)
     get_model_predict(dtc_reg, X_train, X_test, y_train, y_test)
+
+    # 특성 중요도 시각화
+    visualize_feature_importance(dtc_reg, X_features_ohe.columns)
     
 
 if __name__ == "__main__":
