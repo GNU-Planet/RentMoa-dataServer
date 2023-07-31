@@ -4,15 +4,12 @@ import pandas as pd
 from sqlalchemy import text
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import seaborn as sns
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.tree import DecisionTreeClassifier, export_graphviz
-from xgboost import XGBRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import learning_curve
-from datetime import datetime
-from sklearn.tree import export_text
 import graphviz
 
 import warnings 
@@ -49,7 +46,6 @@ def preprocess_data(data):
     for col in date_columns:
         data[col] = pd.to_datetime(data[col])
         data[col] = data[col].map(pd.Timestamp.timestamp)
-        print(data[col])
 
     # 동 이름을 고유한 번호로 매핑하는 딕셔너리 생성
     dong_mapping = {
@@ -218,8 +214,15 @@ def main():
     #원-핫 인코딩이 적용된 피처 데이터 세트 기반으로 학습/예측 데이터 분할 
     X_train, X_test, y_train, y_test = train_test_split(X_features_ohe, y_target, test_size=0.2, random_state=0)
 
-    dtc_reg = GradientBoostingRegressor(random_state=0)
-    get_model_predict(dtc_reg, X_train, X_test, y_train, y_test)    
+    dtc_reg = GradientBoostingRegressor(random_state=0, learning_rate=0.1)
+    get_model_predict(dtc_reg, X_train, X_test, y_train, y_test)
+
+    # 교차 검증 수행 (k=5인 경우)
+    cv_scores = cross_val_score(dtc_reg, X_train, y_train, cv=5)
+
+    # 교차 검증 결과 출력
+    print("교차 검증 정확도:", cv_scores)
+    print("평균 교차 검증 정확도:", cv_scores.mean())  
 
     # 학습 곡선 그리기
     cv = 5  # 교차 검증 폴드 수
