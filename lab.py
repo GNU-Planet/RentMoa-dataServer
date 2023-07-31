@@ -1,4 +1,5 @@
 import numpy as np
+from xgboost import XGBRegressor
 from PublicDataReader.config.database import engine
 import pandas as pd
 from sqlalchemy import text
@@ -7,7 +8,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import seaborn as sns
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import learning_curve
 import graphviz
@@ -27,16 +28,17 @@ def load_data():
     conn = engine.connect()
     query = """
             SELECT *
-            FROM offi_rent_contract
+            FROM apartment_rent_contract
             """
 
     result = conn.execute(text(query)).fetchall()
     contract_data = pd.DataFrame(result)
-
-    #contract_end_date가 None인 행 제거
-    contract_data = contract_data.dropna(subset=['contract_end_date'])
     
-    return contract_data
+    # contract_end_date가 None인 행과 not null인 행 분리
+    contract_data_null = contract_data[contract_data['contract_end_date'].isnull()]
+    contract_data_not_null = contract_data.dropna(subset=['contract_end_date'])
+    
+    return contract_data_null, contract_data_not_null
 
 # 데이터 전처리 함수
 def preprocess_data(data):
@@ -44,8 +46,11 @@ def preprocess_data(data):
     date_columns = ['contract_date', 'contract_end_date']
 
     for col in date_columns:
-        data[col] = pd.to_datetime(data[col])
-        data[col] = data[col].map(pd.Timestamp.timestamp)
+        try:
+            data[col] = pd.to_datetime(data[col])
+            data[col] = data[col].map(pd.Timestamp.timestamp)
+        except:
+            pass
 
     # 동 이름을 고유한 번호로 매핑하는 딕셔너리 생성
     dong_mapping = {
@@ -87,16 +92,19 @@ def preprocess_data(data):
     # dong 열의 동 이름을 번호로 매핑하여 변환
     data['dong'] = data['dong'].map(dong_mapping)
 
-    drop_columns = ['contract_start_date', 'id', 'contract_type', 'renewal_request', 'regional_code']
+    drop_columns = ['contract_start_date', 'contract_type', 'renewal_request', 'regional_code']
     data.drop(drop_columns, axis=1, inplace=True)
 
     # (contract_end_date - contract_date)로 duration 계산
-    data['duration'] = data['contract_end_date'] - data['contract_date']
-    # 계약 기간을 월(Month) 로 변환
-    data['duration_months'] = (round(data['duration'] / (60 * 60 * 24 * 30))).astype(int)
-    # 계약 기간이 11, 12, 13, 23, 24, 25개월인 데이터만 추출
-    data = data[data['duration_months'].isin([11, 12, 13, 23, 24, 25])]
-    data.drop(['duration', 'duration_months'], axis=1, inplace=True)
+    # try:
+    #     data['duration'] = data['contract_end_date'] - data['contract_date']
+    #     # 계약 기간을 월(Month) 로 변환
+    #     data['duration_months'] = (round(data['duration'] / (60 * 60 * 24 * 30))).astype(int)
+    #     # 계약 기간이 11, 12, 13, 23, 24, 25개월인 데이터만 추출
+    #     data = data[data['duration_months'].isin([11, 12, 13, 23, 24, 25])]
+    #     data.drop(['duration', 'duration_months'], axis=1, inplace=True)
+    # except:
+    #     pass
 
     return data
 
@@ -196,41 +204,66 @@ def plot_learning_curve(model, X, y, cv, train_sizes):
     plt.xlabel('Training Set Size')
     plt.ylabel('Accuracy')
     plt.legend(loc='lower right')
-    plt.ylim([0.5, 1.0])
+    plt.ylim([0.3, 1.0])
     plt.title('Learning Curve')
     plt.show()
 
+# DB에 데이터를 업데이트하는 함수
+def update_contract_dates(data):
+    # Create a connection to the database
+    conn = engine.connect()
+
+    # Iterate over the rows of the DataFrame
+    for index, row in data.iterrows():
+        # Get the id and contract_date from the row
+        idx = row['id']
+        contract_end_date = row['contract_end_date']
+
+        # Update the contract_date in the database using an SQL UPDATE query
+        query = f"UPDATE aprent_con SET contract_end_date = '{contract_end_date}' WHERE id = {idx}"
+        conn.execute(text(query))
+
+        #commit
+        conn.commit()
+
+    # Close the database connection
+    conn.close()
+
 def main():
-    contract_data = load_data()
+    empty_data, contract_data = load_data()
     contract_data = preprocess_data(contract_data)
+    #empty_data = preprocess_data(empty_data)
 
     # 예측할 레이블(y_target)과 특성(X_features) 분리
     y_target = contract_data['contract_end_date']
-    X_features = contract_data.drop(['contract_end_date'], axis=1, inplace=False)
+    X_features = contract_data.drop(['contract_end_date', 'id'], axis=1, inplace=False)
+    empty_X_features = empty_data.drop(['contract_end_date'], axis=1, inplace=False)
     ohe_columns = ['building_id', 'dong']
-    X_features_ohe = pd.get_dummies(X_features, columns=ohe_columns)
-    print(X_features_ohe.columns)
 
-    #원-핫 인코딩이 적용된 피처 데이터 세트 기반으로 학습/예측 데이터 분할 
+    # 학습 데이터와 예측 데이터 모두에 대해 동일한 one-hot encoding 적용
+    X_features_ohe = pd.get_dummies(X_features, columns=ohe_columns)
+    empty_data_ohe = pd.get_dummies(empty_X_features, columns=ohe_columns)
+
+    # 특성 순서가 일치하도록 columns 맞추기
+    X_features_ohe, empty_data_ohe = X_features_ohe.align(empty_data_ohe, join='outer', axis=1, fill_value=0)
+
+    # 원-핫 인코딩이 적용된 피처 데이터 세트 기반으로 학습/예측 데이터 분할
     X_train, X_test, y_train, y_test = train_test_split(X_features_ohe, y_target, test_size=0.2, random_state=0)
 
-    dtc_reg = GradientBoostingRegressor(random_state=0, learning_rate=0.1)
+    dtc_reg = GradientBoostingRegressor(random_state=0)
     get_model_predict(dtc_reg, X_train, X_test, y_train, y_test)
-
-    # 교차 검증 수행 (k=5인 경우)
-    cv_scores = cross_val_score(dtc_reg, X_train, y_train, cv=5)
-
-    # 교차 검증 결과 출력
-    print("교차 검증 정확도:", cv_scores)
-    print("평균 교차 검증 정확도:", cv_scores.mean())  
 
     # 학습 곡선 그리기
     cv = 5  # 교차 검증 폴드 수
     train_sizes = np.linspace(0.1, 1.0, 10)  # 학습 데이터 크기의 비율
     plot_learning_curve(dtc_reg, X_train, y_train, cv=cv, train_sizes=train_sizes)
 
-    #visualize_feature_importance(dtc_reg, X_features_ohe.columns)
-    
+    # # 모델을 학습한 후에 empty_data에 'contract_end_date' 예측값을 추가
+    # empty_data['contract_end_date'] = dtc_reg.predict(empty_data_ohe)
+    # # contract_end_date 에폭 -> datetime으로 변환
+    # empty_data['contract_end_date'] = convert_epoch_to_date(empty_data['contract_end_date'])
+    # # DB에 데이터 업데이트
+    # update_contract_dates(empty_data)
 
 if __name__ == "__main__":
     main()

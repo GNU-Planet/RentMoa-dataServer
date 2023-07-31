@@ -105,7 +105,7 @@ def main():
     for type in test_type:
         empty_data, contract_data = load_data(type)
         contract_data = preprocess_data(contract_data)
-        #empty_data = preprocess_data(empty_data)
+        empty_data = preprocess_data(empty_data)
         
         # 모델에 사용할 feature와 target 변수 설정
         contract_features = ['deposit', 'monthly_rent', 'contract_date', 'contract_area', 'floor']
