@@ -8,10 +8,12 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, export_graphviz
 from xgboost import XGBRegressor
+from sklearn.model_selection import learning_curve
 from datetime import datetime
-from lightgbm import LGBMRegressor
+from sklearn.tree import export_text
+import graphviz
 
 import warnings 
 warnings.filterwarnings("ignore", category = RuntimeWarning)
@@ -47,12 +49,7 @@ def preprocess_data(data):
     for col in date_columns:
         data[col] = pd.to_datetime(data[col])
         data[col] = data[col].map(pd.Timestamp.timestamp)
-
-    # contract_type 열을 전처리 (0=신규, 1=갱신, 2=null)
-    data['contract_type'] = data['contract_type'].apply(lambda x : 0 if x == '신규' else 1 if x == '갱신' else 2)
-
-    # renewal_request 열을 전처리 (0=null, 1=사용)
-    data['renewal_request'] = data['renewal_request'].apply(lambda x : 0 if x == 'null' else 1)
+        print(data[col])
 
     # 동 이름을 고유한 번호로 매핑하는 딕셔너리 생성
     dong_mapping = {
@@ -94,7 +91,7 @@ def preprocess_data(data):
     # dong 열의 동 이름을 번호로 매핑하여 변환
     data['dong'] = data['dong'].map(dong_mapping)
 
-    drop_columns = ['contract_start_date', 'id']
+    drop_columns = ['contract_start_date', 'id', 'contract_type', 'renewal_request', 'regional_code']
     data.drop(drop_columns, axis=1, inplace=True)
 
     # (contract_end_date - contract_date)로 duration 계산
@@ -180,6 +177,33 @@ def visualize_feature_importance(model, feature_names):
     plt.title('Feature Importance of RandomForestRegressor')
     plt.show()
 
+# 학습 곡선 그리기
+def plot_learning_curve(model, X, y, cv, train_sizes):
+    train_sizes, train_scores, test_scores = learning_curve(model, X, y, cv=cv, train_sizes=train_sizes)
+
+    # 훈련 세트의 평균 정확도와 표준 편차 계산
+    train_mean = np.mean(train_scores, axis=1)
+    train_std = np.std(train_scores, axis=1)
+
+    # 검증 세트의 평균 정확도와 표준 편차 계산
+    test_mean = np.mean(test_scores, axis=1)
+    test_std = np.std(test_scores, axis=1)
+
+    # 학습 곡선 그리기
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_sizes, train_mean, color='blue', marker='o', markersize=5, label='training accuracy')
+    plt.fill_between(train_sizes, train_mean + train_std, train_mean - train_std, alpha=0.15, color='blue')
+
+    plt.plot(train_sizes, test_mean, color='green', linestyle='--', marker='s', markersize=5, label='validation accuracy')
+    plt.fill_between(train_sizes, test_mean + test_std, test_mean - test_std, alpha=0.15, color='green')
+
+    plt.xlabel('Training Set Size')
+    plt.ylabel('Accuracy')
+    plt.legend(loc='lower right')
+    plt.ylim([0.5, 1.0])
+    plt.title('Learning Curve')
+    plt.show()
+
 def main():
     contract_data = load_data()
     contract_data = preprocess_data(contract_data)
@@ -187,18 +211,22 @@ def main():
     # 예측할 레이블(y_target)과 특성(X_features) 분리
     y_target = contract_data['contract_end_date']
     X_features = contract_data.drop(['contract_end_date'], axis=1, inplace=False)
-    ohe_columns = ['contract_type', 'renewal_request', 'building_id', 'regional_code', 'dong']
+    ohe_columns = ['building_id', 'dong']
     X_features_ohe = pd.get_dummies(X_features, columns=ohe_columns)
     print(X_features_ohe.columns)
 
     #원-핫 인코딩이 적용된 피처 데이터 세트 기반으로 학습/예측 데이터 분할 
     X_train, X_test, y_train, y_test = train_test_split(X_features_ohe, y_target, test_size=0.2, random_state=0)
 
-    dtc_reg = XGBRegressor(random_state=0)
-    get_model_predict(dtc_reg, X_train, X_test, y_train, y_test)
+    dtc_reg = GradientBoostingRegressor(random_state=0)
+    get_model_predict(dtc_reg, X_train, X_test, y_train, y_test)    
 
-    # 특성 중요도 시각화
-    visualize_feature_importance(dtc_reg, X_features_ohe.columns)
+    # 학습 곡선 그리기
+    cv = 5  # 교차 검증 폴드 수
+    train_sizes = np.linspace(0.1, 1.0, 10)  # 학습 데이터 크기의 비율
+    plot_learning_curve(dtc_reg, X_train, y_train, cv=cv, train_sizes=train_sizes)
+
+    #visualize_feature_importance(dtc_reg, X_features_ohe.columns)
     
 
 if __name__ == "__main__":
